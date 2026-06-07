@@ -25,7 +25,7 @@ services:
       - JAVA_OPTS=-Xmx512m -Xms256m -Djenkins.install.runSetupWizard=true
       - JENKINS_OPTS=--prefix=/jenkins
     volumes:
-      - ./jenkins-data:/var/jenkins_home
+      - jenkins-data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:
       resources:
@@ -45,7 +45,7 @@ services:
         limits:
           memory: 128M
 
-  # 4. Lightweight SQL Database (Official Standard LTS Tag)
+  # 4. Lightweight SQL Database (Now Persistent!)
   database:
     image: mariadb:lts
     container_name: local-db
@@ -53,7 +53,14 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: sample_db
+    volumes:
+      - db-data:/var/lib/mysql # <--- Added to save database files
     deploy:
       resources:
         limits:
           memory: 300M
+
+# Declares the permanent storage buckets managed by Docker
+volumes:
+  jenkins-data:
+  db-data:
