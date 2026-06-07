@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # 1. Reverse Proxy (Consumes ~20MB RAM)
+  proxy:
+    image: nginx:alpine
+    container_name: local-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+    depends_on:
+      - app
+      - jenkins
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # 2. Automation Server (Consumes ~700MB RAM)
+  jenkins:
+    image: jenkins/jenkins:lts-alpine
+    container_name: local-jenkins
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m -Djenkins.install.runSetupWizard=true
+      - JENKINS_OPTS=--prefix=/jenkins
+    volumes:
+      - ./jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+
+  # 3. Sample PHP Web Application (Consumes ~30MB RAM)
+  app:
+    image: php:8.2-fpm-alpine
+    container_name: local-app
+    volumes:
+      - ./app:/var/www/html
+    depends_on:
+      - database
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # 4. Lightweight SQL Database (Official Standard LTS Tag)
+  database:
+    image: mariadb:lts
+    container_name: local-db
+    command: --performance_schema=OFF --innodb_buffer_pool_size=32M
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: sample_db
+    deploy:
+      resources:
+        limits:
+          memory: 300M

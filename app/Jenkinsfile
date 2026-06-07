@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+    environment {
+        APP_NAME = "local-app"
+    }
+    stages {
+        stage('Fetch Code') {
+            steps {
+                echo 'Checking out source application directories...'
+            }
+        }
+        stage('Database Check') {
+            steps {
+                echo 'Validating database schema migrations...'
+            }
+        }
+        stage('Deploy Patch') {
+            steps {
+                echo "Reloading runtime components on ${env.APP_NAME}..."
+                sh 'docker kill -s HUP local-proxy'
+            }
+        }
+    }
+}
+
