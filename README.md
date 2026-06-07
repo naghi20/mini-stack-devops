@@ -113,3 +113,77 @@ Once the stack is deployed locally or via WSL, all services can be accessed usin
 Type these directly into the query bar at `http://localhost:9090` to observe your infrastructure performance:
 * **Container RAM Usage:** `container_memory_usage_bytes{name="local-jenkins"}`
 * **Container CPU Utilization Percentages:** `sum(rate(container_cpu_usage_seconds_total[5m])) by (name)`
+
+
+
+
+
+------------------------------
+## 🛠️ 1. The Orchestration Layer (docker-compose.yml)## A. The Nginx Configuration Mount
+
+volumes:
+  - ./nginx:/etc/nginx/conf.d:ro
+
+
+* The Argument (:ro): This mounts your configuration folder as Read-Only.
+* The Technical Reason: Security hardening. If a hacker exploits a vulnerability in your PHP web app and somehow manages to pivot into the Nginx container container filesystem, they cannot modify your proxy configurations, inject malicious redirection scripts, or alter traffic paths.
+
+## B. The Jenkins Environment Parameters
+
+environment:
+  - JAVA_OPTS=-Xmx512m -Xms256m -Djenkins.install.runSetupWizard=true
+  - JENKINS_OPTS=--prefix=/jenkins
+
+
+* The Argument (-Xmx512m -Xms256m): Configures Java Heap Allocation parameters. -Xms sets the startup RAM memory allocation pool at 256MB, while -Xmx hard caps the absolute ceiling threshold at 512MB.
+* The Technical Reason: By default, Jenkins' underlying Java engine will try to claim up to 25% of your host's total system memory. On a small cloud instance or sandbox, this will instantly trigger the Linux Out-Of-Memory (OOM) killer to crash your server.
+* The Argument (--prefix=/jenkins): Forces Jenkins to attach a context prefix string to every internal URL asset it generates. Without this, your Nginx proxy will pull unstyled HTML pages because Jenkins will look for its CSS files on http://localhost/ instead of http://localhost/jenkins/.
+
+## C. The MariaDB Operational Optimizations
+
+command: --performance_schema=OFF --innodb_buffer_pool_size=32M
+
+
+* The Argument (--performance_schema=OFF): Disables MariaDB's internal performance tracing metric engine. This saves an immediate 100MB to 150MB of idling system RAM allocation overhead.
+* The Argument (--innodb_buffer_pool_size=32M): Restricts the database engine data index storage caching cache footprint down to 32MB (down from its standard default size of 128MB). This ensures your database consumes a very stable, restricted RAM envelope while remaining completely sufficient for micro-applications.
+
+## D. The Prometheus Storage Limit Parameters
+
+command:
+  - '--storage.tsdb.retention.time=1d'
+
+
+* The Argument (1d): Hard caps the Time-Series Database history file logs at exactly 24 hours.
+* The Technical Reason: High-frequency metrics scraping (every 15 seconds) generates millions of metrics data string lines. Left unrestricted, Prometheus will gradually consume your hard drive space until the entire server disk crashes.
+
+------------------------------
+## 🌐 2. The Traffic Gateway (nginx/default.conf)## A. The PHP FastCGI Gateway Processing Protocol
+
+location / {
+    include fastcgi_params;
+    fastcgi_pass local-app:9000;
+    fastcgi_param SCRIPT_FILENAME /var/www/html/index.php;
+}
+
+
+* The Argument (local-app:9000): Standard web servers cannot read .php application files out of the box. Nginx intercepts incoming HTTP network packets on Port 80, packs them into a binary data interface string framework (fastcgi_params), and hands them off to the background container socket over the built-in isolated Docker container network bridge.
+
+## B. Header Preservation Variables
+
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+
+
+* The Argument: When traffic is forwarded, Nginx overwrites network source packets with its own container credentials. These variables preserve the original client browser signatures. Without these headers, Jenkins' internal CSRF security filters will treat the incoming forwarded connections as a security hack attempt and return an HTTP 403 Forbidden error.
+
+------------------------------
+## 🔄 3. The Automation Pipeline Structure (Jenkinsfile)
+
+sh 'curl -s http://local-proxy/ | grep -q "Successfully connected"'
+
+
+* The Argument (grep -q): Runs grep in Quiet/Silent Mode. It suppresses the standard console output and returns a boolean value (0 for a match, 1 for a failure) directly back to the active shell interpreter.
+* The Technical Reason: This acts as an automated smoke test for your build architecture. If your code file gets corrupted or your MariaDB database crashes, grep will fail to find the string confirmation, and Jenkins will immediately halt the deployment timeline and mark the build step as Failed before any bad code hits actual production users.
+
+------------------------------
+
