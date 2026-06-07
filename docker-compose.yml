@@ -63,6 +63,8 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: local-cadvisor
+    ports:
+      - "8080:8080" 
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
