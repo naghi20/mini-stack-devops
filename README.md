@@ -84,3 +84,32 @@ The repository includes a decoupled programmatic pipeline layout structured into
 
 
 🚀 Final Summary of What You BuiltMicro-Budget Architecture: A multi-tier DevOps platform running fully on less than 1.5 GB of RAM.Declarative CI/CD: Native execution loops checking your logic, testing databases, and issuing dynamic service signals (Jenkinsfile).Production Decoupling: Complete reverse proxy isolation dividing user traffic from administration control points (Nginx).
+
+---
+
+## 📊 Infrastructure Observability & Telemetry
+
+This micro-stack includes an ultra-lightweight performance monitoring pipeline designed to capture real-time hardware telemetry without exceeding our tight memory constraints.
+
+### Monitoring Component Breakdown
+1. **Google cAdvisor (Port 8080):** Connects directly to the Linux kernel to analyze resource usage (CPU, memory, file systems, network) of every active container.
+2. **Prometheus TSDB (Port 9090):** A highly optimized time-series database configured to scrape metrics from cAdvisor every 15 seconds. It automatically drops historical data after 24 hours (`--storage.tsdb.retention.time=1d`) to protect disk storage.
+
+---
+
+## 🌐 Complete Service Gateway Matrix
+
+Once the stack is deployed locally or via WSL, all services can be accessed using your web browser or command-line interfaces through the following endpoints:
+
+
+| Service UI Dashboard | Access URL Network Path | Key Operational Use Case |
+| :--- | :--- | :--- |
+| **PHP Production Web App** | `http://localhost/` | Validates end-to-end routing from proxy down to your MariaDB database instances. |
+| **Jenkins Control Center** | `http://localhost/jenkins` | Graphical dashboard to configure, run, and audit automation pipelines. |
+| **Google cAdvisor** | `http://localhost:8080` | Native Google dashboard displaying real-time memory and processing utilization metrics per container. |
+| **Prometheus Expression Engine** | `http://localhost:9090` | Graphical telemetry query workspace. Use expressions to inspect your stack health. |
+
+### 🔍 Useful Prometheus Metric Expressions
+Type these directly into the query bar at `http://localhost:9090` to observe your infrastructure performance:
+* **Container RAM Usage:** `container_memory_usage_bytes{name="local-jenkins"}`
+* **Container CPU Utilization Percentages:** `sum(rate(container_cpu_usage_seconds_total[5m])) by (name)`
