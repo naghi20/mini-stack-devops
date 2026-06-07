@@ -1,9 +1,8 @@
 services:
-  # 1. Reverse Proxy (Self-Healing Router)
   proxy:
     image: nginx:alpine
     container_name: local-proxy
-    restart: unless-stopped  # <--- Component 1: Auto-Restart Policy
+    restart: unless-stopped
     ports:
       - "80:80"
     volumes:
@@ -11,17 +10,16 @@ services:
     depends_on:
       - app
       - jenkins
-    healthcheck:            # <--- Component 2: Internal Health Verification
+    healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
     deploy:
       resources:
         limits:
           memory: 64M
 
-  # 2. Automation Server
   jenkins:
     image: jenkins/jenkins:lts-alpine
     container_name: local-jenkins
@@ -34,15 +32,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/jenkins/login"]
-      interval: 45s
+      interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
     deploy:
       resources:
         limits:
           memory: 800M
 
-  # 3. Sample PHP Web Application
   app:
     image: php:8.2-fpm-alpine
     container_name: local-app
@@ -52,16 +50,15 @@ services:
     depends_on:
       - database
     healthcheck:
-      test: ["CMD", "cgi-fcgi", "-bind", "-connect", "127.0.0.1:9000"]
-      interval: 30s
+      test: ["CMD", "test", "-f", "/var/www/html/index.php"]
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 2
     deploy:
       resources:
         limits:
           memory: 128M
 
-  # 4. Lightweight SQL Database
   database:
     image: mariadb:lts
     container_name: local-db
@@ -74,15 +71,14 @@ services:
       - db-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
     deploy:
       resources:
         limits:
           memory: 300M
 
-  # 5. Resource Metrics Collector
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: local-cadvisor
@@ -100,7 +96,6 @@ services:
         limits:
           memory: 45M
 
-  # 6. Time-Series Metrics Database
   prometheus:
     image: prom/prometheus:v2.51.1
     container_name: local-prometheus
@@ -108,14 +103,19 @@ services:
     ports:
       - "9090:9090"
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=1d'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=1d"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     depends_on:
       - cadvisor
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     deploy:
       resources:
         limits:
