@@ -59,8 +59,42 @@ services:
       resources:
         limits:
           memory: 300M
+  # 5. Resource Metrics Collector (Consumes ~30MB RAM)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: local-cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    deploy:
+      resources:
+        limits:
+          memory: 45M
+
+  # 6. Time-Series Metrics Database (Consumes ~40MB RAM)
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: local-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=1d' # Save storage space by keeping only 1 day of metrics history
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - cadvisor
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
 
 # Declares the permanent storage buckets managed by Docker
 volumes:
   jenkins-data:
   db-data:
+  prometheus-data:
